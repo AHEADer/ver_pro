@@ -5,10 +5,10 @@
 // 
 // Create Date: 08/30/2016 06:56:55 PM
 // Design Name: 
-// Module Name: led
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
+// Module Name: clock
+// Project Name: digital clock
+// Target Devices: NEXYS4
+// Tool Versions: 2015.2
 // Description: 
 // 
 // Dependencies: 
@@ -21,12 +21,23 @@
 
 
 module clock(
-input cp,reset,open,sec_add, min_add, hour_add,
-output [7:0] show_led,
-output [0:6] led_out,
+//参数及作用
+//cp:开发板内置时钟信号输出
+//reset:重置时间信号
+//switch:暂停开关
+//sec_add:暂停时调整时间秒
+//min_add:暂停时调整时间分
+//hour_add:暂停时调整时间时
+//which_led:选择输出的led灯
+//led_display:led输出信号
+//signal:整点提示信号
+input cp,reset,switch,sec_add, min_add, hour_add,
+output [7:0] which_led,
+output [0:6] led_display,
 output signal
     );
-    
+
+    //这里的one-nine对应的led显示信号
     parameter zero=7'b1000000,
                     one=7'b1111001,
                     two=7'b0100100,
@@ -38,27 +49,27 @@ output signal
                     eight=7'b0000000,
                     nine=7'b0010000;
     
-    reg [7:0] which;
-    reg [0:6] what=0;
-    reg [3:0] value=0;
-    reg [20:0] cnt_scan=0;
-    wire [3:0] sec_a_cnt, sec_b_cnt, min_a_cnt, min_b_cnt, hour_a_cnt, hour_b_cnt;
-    wire [4:0] hour_cnt;
-    reg [3:0] sec_a, sec_b, min_a, min_b, hour_a, hour_b;
-    wire cp_sec, cp_min, cp_hour, cp_slow;
-    wire cp_sec_, cp_min_, cp_hour_;
-    wire c_out1, c_out2, sec_min, min_hour;
-    reg c_in = 1;
+    reg [7:0] which;    //选择led灯
+    reg [0:6] what=0;   //led灯现实
+    reg [3:0] value=0;  //显示的数字的二进制值
+    reg [20:0] cnt_scan=0;  //控制显示扫描的频率
+    wire [3:0] sec_a_cnt, sec_b_cnt, min_a_cnt, min_b_cnt;  //秒,分的计数
+    wire [4:0] hour_cnt;    //时的计数
+    reg [3:0] sec_a, sec_b, min_a, min_b, hour_a, hour_b;   //秒,分,时的大小,每个两个数字表示
+    wire cp_sec, cp_min, cp_hour, cp_slow;  //具体的时钟周期
+    wire cp_sec_;    //没有暂停时的时钟周期秒
+    wire sec_min, min_hour; //没有暂停时的时钟周期分和时
+    reg c_in = 1;   //计数器工作信号
     
-    dclk d1(cp, open, cp_sec_);
+    dclk d1(cp, switch, cp_sec_);
     
-    assign cp_sec = open?cp_sec_:sec_add;
-    assign cp_min = open?sec_min:min_add;
-    assign cp_hour = open?min_hour:hour_add;
-    assign show_led = which;
-    assign led_out = what;
+    assign cp_sec = switch?cp_sec_:sec_add; //根据暂停信号调整对应的时钟周期
+    assign cp_min = switch?sec_min:min_add;
+    assign cp_hour = switch?min_hour:hour_add;
+    assign which_led = which;
+    assign led_display = what;
         
-    always @(posedge cp)
+    always @(posedge cp)    //这里是显示bcd码
     begin
     cnt_scan  = cnt_scan + 1;
     case(cnt_scan[18:16])
@@ -98,9 +109,9 @@ output signal
     default: what <= zero;
     endcase                        
     end
-     
-    //module count__10(cin,clk,qout,cout,reset);
-    //module count__6(cin,clk,qout,cout,reset);
+    
+    
+    //对应调用相应模块
     count__10 cten1(c_in, cp_sec,sec_a_cnt,cout1,reset);
     count__6 csix1(c_in,cout1,sec_b_cnt,sec_min,reset);
     
@@ -108,8 +119,9 @@ output signal
     count__6 csix2(c_in,cout2,min_b_cnt,min_hour,reset);
     
     count__24 c24(c_in,cp_hour,hour_cnt,reset);
-    ring r1(cp_min ,cp_sec , sec_a, sec_b, min_a, min_b, open, signal);
-            
+    ring r1(cp_min ,cp_sec , sec_a, sec_b, min_a, min_b, switch, signal);
+    
+    //对应时间计数变化的话，显示计数的值就变化        
     always @(sec_a_cnt)
     begin
     sec_a <= sec_a_cnt;
@@ -140,7 +152,7 @@ endmodule
 
 
 module dclk(
-input cp, open,
+input cp, switch,
 output cpo
     );
     reg [0:31] cnt = 0;
@@ -148,7 +160,7 @@ output cpo
     assign cpo = cpd;
     always @(posedge cp)
     begin
-    if(open)
+    if(switch)
     cnt <= cnt+1'b1;
     if (cnt >= 49999999)
     //if (cnt >= 49999)
@@ -163,7 +175,7 @@ module ring(
 input cp_ring,  //input: hours/mins
 cp_sec, 
 input [3:0] sec_a, sec_b, min_a, min_b,
-input open,
+input switch,
 output signal
     );
     reg [0:5] count = 1'b0;
@@ -173,7 +185,7 @@ output signal
         
     always @(negedge cp_sec)
     begin
-    if(open)
+    if(switch)
     if(sec_a == 0 && sec_b == 0 && min_a ==0 && min_b == 0)
         r_signal = 1;
     
