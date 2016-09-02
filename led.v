@@ -205,6 +205,12 @@ output signal
 endmodule
 
 module count__10(cin,clk,qout,cout,reset);
+//参数及作用
+//cin:计数器开关
+//clk:输入周期信号
+//qout:输出的计时大小
+//cout:进位信号
+//reset:重置信号
 input cin,clk,reset;
 output cout;
 output [3:0] qout;
@@ -220,7 +226,7 @@ end
    else qout[3:0]=qout[3:0]+1;
 end
 end
-assign cout=((qout[3:0]==9)&cin)?1:0;
+assign cout=((qout[3:0]==9)&cin)?1:0;   //到9进位
 endmodule
 
 module count__6(cin,clk,qout,cout,reset);
